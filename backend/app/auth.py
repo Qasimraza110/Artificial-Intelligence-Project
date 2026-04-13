@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from db import db
-from passlib.hash import bcrypt
+from .db import db
+from passlib.context import CryptContext
 from jose import jwt
 import os
 from dotenv import load_dotenv
@@ -12,6 +12,8 @@ router = APIRouter()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 # SIGNUP
 @router.post("/signup")
 async def signup(user: dict):
@@ -20,7 +22,7 @@ async def signup(user: dict):
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    user["password"] = bcrypt.hash(user["password"])
+    user["password"] = pwd_context.hash(user["password"])
 
     await db.users.insert_one(user)
 
@@ -36,7 +38,7 @@ async def login(user: dict):
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if not bcrypt.verify(user["password"], db_user["password"]):
+    if not pwd_context.verify(user["password"], db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid password")
 
     token = jwt.encode(

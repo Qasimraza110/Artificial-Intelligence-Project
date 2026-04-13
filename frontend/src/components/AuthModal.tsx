@@ -3,7 +3,9 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Bot, Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Bot, Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react";
+import { apiRequest } from "@/lib/api";
+import { toast } from "sonner";
 
 interface AuthModalProps {
   open: boolean;
@@ -14,6 +16,60 @@ interface AuthModalProps {
 const AuthModal = ({ open, onOpenChange, onLogin }: AuthModalProps) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (isLogin) {
+        const response = await apiRequest("/login", {
+          method: "POST",
+          body: JSON.stringify({
+            username: formData.email,
+            password: formData.password,
+          }),
+        });
+        localStorage.setItem("access_token", response.access_token);
+        localStorage.setItem("user_email", formData.email);
+        toast.success("Welcome back!");
+        onLogin();
+      } else {
+        await apiRequest("/signup", {
+          method: "POST",
+          body: JSON.stringify({
+            username: formData.email,
+            password: formData.password,
+            email: formData.email,
+            name: formData.name,
+          }),
+        });
+        
+        // Also create a basic profile
+        await apiRequest("/profile", {
+          method: "POST",
+          body: JSON.stringify({
+            username: formData.email,
+            name: formData.name,
+            bio: "AI Interview enthusiast",
+          }),
+        });
+
+        toast.success("Account created! Please log in.");
+        setIsLogin(true);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Authentication failed";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,7 +114,7 @@ const AuthModal = ({ open, onOpenChange, onLogin }: AuthModalProps) => {
         </div>
 
         {/* Form */}
-        <form className="px-8 pb-8 pt-4 space-y-4" onSubmit={(e) => e.preventDefault()}>
+        <form className="px-8 pb-8 pt-4 space-y-4" onSubmit={handleAuth}>
           {!isLogin && (
             <div className="space-y-2">
               <Label htmlFor="name" className="text-foreground text-sm">Full Name</Label>
@@ -67,6 +123,9 @@ const AuthModal = ({ open, onOpenChange, onLogin }: AuthModalProps) => {
                 <Input
                   id="name"
                   placeholder="John Doe"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
                   className="pl-10 bg-secondary border-border focus:border-primary focus:ring-primary/20"
                 />
               </div>
@@ -81,6 +140,9 @@ const AuthModal = ({ open, onOpenChange, onLogin }: AuthModalProps) => {
                 id="email"
                 type="email"
                 placeholder="you@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
                 className="pl-10 bg-secondary border-border focus:border-primary focus:ring-primary/20"
               />
             </div>
@@ -94,6 +156,9 @@ const AuthModal = ({ open, onOpenChange, onLogin }: AuthModalProps) => {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
                 className="pl-10 pr-10 bg-secondary border-border focus:border-primary focus:ring-primary/20"
               />
               <button
@@ -108,14 +173,25 @@ const AuthModal = ({ open, onOpenChange, onLogin }: AuthModalProps) => {
 
           {isLogin && (
             <div className="flex justify-end">
-              <button className="text-xs text-primary hover:underline">
+              <button type="button" className="text-xs text-primary hover:underline">
                 Forgot password?
               </button>
             </div>
           )}
 
-          <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-primary font-semibold" onClick={onLogin}>
-            {isLogin ? "Log In" : "Create Account"}
+          <Button 
+            type="submit" 
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-primary font-semibold" 
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              isLogin ? "Log In" : "Create Account"
+            )}
           </Button>
 
           <div className="relative my-4">

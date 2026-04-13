@@ -20,3 +20,10 @@ app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(question_router)
 app.include_router(interview_router)
+
+@app.on_event("startup")
+async def startup_event():
+    print("\n" + "="*50)
+    print("➜  Backend API:   http://localhost:8000")
+    print("➜  Swagger Docs:  http://localhost:8000/docs")
+    print("="*50 + "\n")
